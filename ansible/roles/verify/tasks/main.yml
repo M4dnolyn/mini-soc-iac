@@ -1,0 +1,57 @@
+---
+- name: "Vérifier que Docker est disponible"
+  ansible.builtin.command: docker info
+  register: docker_info
+  changed_when: false
+  failed_when: docker_info.rc != 0
+
+- name: "Vérifier que les containers Wazuh existent"
+  community.docker.docker_container_info:
+    name: "{{ item }}"
+  loop:
+    - "{{ indexer_container }}"
+    - "{{ manager_container }}"
+    - "{{ dashboard_container }}"
+    - "{{ agent_container }}"
+  register: containers_check
+
+- name: "Échouer si un container est absent"
+  ansible.builtin.fail:
+    msg: "Container {{ item.item }} not found — run terraform apply first"
+  loop: "{{ containers_check.results }}"
+  when: item.exists == false
+
+- name: "Attendre que le port 9200 de l'indexer soit accessible"
+  ansible.builtin.wait_for:
+    port: 9200
+    host: localhost
+    delay: 15
+    timeout: 120
+  changed_when: false
+
+- name: "Initialiser la sécurité de l'indexer (securityadmin)"
+  ansible.builtin.shell:
+    cmd: |
+      docker exec -e JAVA_HOME=/usr/share/wazuh-indexer/jdk {{ indexer_container }} bash -c '
+        export CACERT=/usr/share/wazuh-indexer/config/certs/root-ca.pem
+        export CERT=/usr/share/wazuh-indexer/config/certs/admin.pem
+        export KEY=/usr/share/wazuh-indexer/config/certs/admin-key.pem
+        /usr/share/wazuh-indexer/plugins/opensearch-security/tools/securityadmin.sh \
+          -cd /usr/share/wazuh-indexer/config/opensearch-security/ \
+          -nhnv -cacert $CACERT -cert $CERT -key $KEY -p 9200 -icl -rev
+      '
+  register: securityadmin
+  changed_when: securityadmin.rc == 0
+  retries: 10
+  delay: 5
+  until: securityadmin.rc == 0
+  failed_when: securityadmin.rc != 0
+
+- name: "Vérifier que l'indexer répond avec authentification"
+  ansible.builtin.shell:
+    cmd: "curl -sfk -u admin:admin https://localhost:9200/_cluster/health"
+  register: indexer_health
+  changed_when: false
+  retries: 10
+  delay: 3
+  until: indexer_health.rc == 0

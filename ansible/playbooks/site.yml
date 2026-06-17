@@ -1,0 +1,10 @@
+---
+- name: "Déploiement complet — configuration des containers Wazuh"
+  hosts: local
+  gather_facts: false
+  roles:
+    - role: verify
+    - role: configure_indexer
+    - role: configure_manager
+    - role: configure_dashboard
+    - role: configure_agent

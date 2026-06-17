@@ -1,0 +1,37 @@
+---
+- name: "Corriger l'adresse du manager dans ossec.conf"
+  ansible.builtin.shell:
+    cmd: "docker exec {{ agent_container }} sed -i 's|<address></address>|<address>{{ manager_ip }}</address>|g; s|<manager_address></manager_address>|<manager_address>{{ manager_ip }}</manager_address>|g' /var/ossec/etc/ossec.conf"
+
+- name: "Démarrer l'agent"
+  ansible.builtin.shell:
+    cmd: "docker exec {{ agent_container }} /var/ossec/bin/wazuh-control start"
+  register: agent_start
+  changed_when: false
+  ignore_errors: true
+
+- name: "Attendre que l'agent soit prêt"
+  ansible.builtin.pause:
+    seconds: 5
+
+- name: "Vérifier le statut de l'agent"
+  ansible.builtin.shell:
+    cmd: "docker exec {{ agent_container }} /var/ossec/bin/wazuh-control status"
+  register: agent_status
+  changed_when: false
+  ignore_errors: true
+
+- name: "Afficher le statut de l'agent"
+  ansible.builtin.debug:
+    var: agent_status.stdout_lines
+
+- name: "Vérifier si l'agent est enregistré auprès du manager"
+  ansible.builtin.shell:
+    cmd: "docker exec {{ manager_container }} /var/ossec/bin/manage_agents -l"
+  register: agent_list
+  changed_when: false
+  ignore_errors: true
+
+- name: "Afficher les agents enregistrés"
+  ansible.builtin.debug:
+    msg: "Agents: {{ agent_list.stdout_lines | default(['aucun']) }}"

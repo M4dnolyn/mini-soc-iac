@@ -1,0 +1,30 @@
+---
+# SOC variables — configuration des containers Wazuh
+wazuh_version: "4.14.5"
+
+# Containers
+indexer_container: "wazuh-indexer"
+manager_container: "wazuh-manager"
+dashboard_container: "wazuh-dashboard"
+
+# Indexer
+indexer_admin_password: "Admin123!"
+indexer_url: "https://localhost:9200"
+indexer_cluster_name: "wazuh-cluster"
+
+# Manager
+manager_agent_port: 1514
+manager_authd_port: 1515
+manager_api_port: 55000
+manager_api_username: "wazuh-wui"
+manager_api_password: "MyS3cretPassword"
+
+# Dashboard
+dashboard_port: 443
+dashboard_admin_user: "admin"
+dashboard_admin_password: "Admin123!"
+
+# Custom rules
+custom_rules:
+  - name: "local_rules.xml"
+    dest: "/var/ossec/etc/rules/local_rules.xml"

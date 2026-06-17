@@ -1,0 +1,9 @@
+---
+- name: "Configurer la stack Wazuh (Manager + Indexer + Dashboard)"
+  hosts: local
+  gather_facts: false
+  roles:
+    - role: verify
+    - role: configure_indexer
+    - role: configure_manager
+    - role: configure_dashboard

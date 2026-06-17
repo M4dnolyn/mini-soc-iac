@@ -10,7 +10,6 @@ crash.log
 *.retry
 __pycache__/
 *.pyc
-ansible/inventory.ini
 
 # OS
 .DS_Store
@@ -22,6 +21,18 @@ Thumbs.db
 *.swp
 *.swo
 
+# Explanations (non commité)
+explanations/
+
 # Secrets
 **/credentials.yml
 **/vault.yml
+
+# Keystore auto-généré (contient le mot de passe kibanaserver)
+conf/opensearch_dashboards.keystore
+
+# PDF de spécification V1 (libvirt) — obsolète pour la V2 Docker
+Mini_SOC_Terraform_Ansible_Wazuh.pdf
+
+# Documentation V1 (libvirt) — conservée localement, pas commitée
+docs/phases.md

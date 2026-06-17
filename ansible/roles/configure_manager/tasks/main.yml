@@ -1,0 +1,22 @@
+---
+- name: "Vérifier que le manager répond"
+  ansible.builtin.shell:
+    cmd: "docker exec {{ manager_container }} /var/ossec/bin/wazuh-control status"
+  register: manager_status
+  changed_when: false
+  failed_when: false
+
+- name: "Afficher le statut des services manager"
+  ansible.builtin.debug:
+    var: manager_status.stdout_lines
+
+- name: "Vérifier les indices Wazuh dans l'indexer"
+  ansible.builtin.shell:
+    cmd: "docker exec {{ manager_container }} curl -sfk -u admin:admin https://localhost:9200/_cat/indices 2>/dev/null || echo 'pas encore disponible'"
+  register: indices
+  changed_when: false
+  ignore_errors: true
+
+- name: "Afficher les indices Wazuh"
+  ansible.builtin.debug:
+    var: indices.stdout_lines

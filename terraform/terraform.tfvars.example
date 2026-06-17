@@ -1,27 +1,21 @@
-# Mini SOC - Terraform variables
-# Copy to terraform.tfvars and fill in your values
+# Mini SOC - Terraform variables (Docker)
+# Copy to terraform.tfvars and customize if needed
 
-# SSH public key path
-ssh_public_key = "~/.ssh/id_ed25519_soc.pub"
+# Wazuh version
+wazuh_version = "4.14.5"
 
-# VM-SOC configuration
-soc_vm_name    = "vm-soc"
-soc_ram_mb     = 6144
-soc_vcpu       = 2
-soc_ip         = "192.168.100.10"
-soc_disk_gb    = 30
+# Ports
+indexer_port      = 9200
+dashboard_port    = 443
+manager_agent_port = 1514
+manager_authd_port = 1515
+manager_api_port  = 55000
 
-# VM-CLIENT configuration
-client_vm_name    = "vm-client"
-client_ram_mb     = 2048
-client_vcpu       = 1
-client_ip         = "192.168.100.11"
-client_disk_gb    = 15
+# Credentials (change in production!)
+indexer_admin_password = "Admin123!"
+dashboard_password     = "Admin123!"
+api_username           = "wazuh-wui"
+api_password           = "MyS3cretPassword"
 
-# Network
-network_cidr    = "192.168.100.0/24"
-network_gateway = "192.168.100.1"
-network_bridge  = "virbr0"
-
-# Cloud image
-cloud_image_path = "/var/lib/libvirt/images/ubuntu-22.04-server-cloudimg-amd64.img"
+# Agent
+agent_name = "wazuh-agent"

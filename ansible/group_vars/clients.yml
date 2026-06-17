@@ -1,0 +1,9 @@
+---
+# Clients variables — agent Wazuh en conteneur Docker
+agent_container: "wazuh-agent"
+agent_name: "client-01"
+
+# Connexion au manager
+manager_ip: "wazuh-manager"
+manager_port: 1514
+manager_authd_port: 1515

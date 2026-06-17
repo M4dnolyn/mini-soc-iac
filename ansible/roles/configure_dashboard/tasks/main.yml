@@ -1,0 +1,14 @@
+---
+- name: "Attendre que le Dashboard réponde"
+  ansible.builtin.shell:
+    cmd: "docker exec {{ dashboard_container }} curl -s -o /dev/null -w '%{http_code}' http://localhost:443/api/status"
+  register: dashboard_status
+  changed_when: false
+  failed_when: dashboard_status.rc != 0
+  retries: 15
+  delay: 5
+  until: dashboard_status.rc == 0
+
+- name: "Afficher le statut du Dashboard"
+  ansible.builtin.debug:
+    msg: "Dashboard API: {{ dashboard_status.stdout }}"
