@@ -1,0 +1,11 @@
+---
+- name: "Vérifier la santé de l'indexer"
+  ansible.builtin.shell:
+    cmd: "curl -sfk -u admin:admin https://localhost:9200/_cluster/health"
+  register: health
+  changed_when: false
+  failed_when: health.rc != 0
+
+- name: "Afficher le statut du cluster"
+  ansible.builtin.debug:
+    var: health.stdout_lines

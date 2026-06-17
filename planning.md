@@ -1,6 +1,6 @@
-# 📋 Planning — Mini SOC : Terraform · Ansible · Wazuh
-> Infrastructure as Code | libvirt/QEMU | GitHub  
-> Version V1 — Architecture de base
+# 📋 Planning — Mini SOC : Terraform · Docker · Wazuh
+> Infrastructure as Code | Docker | GitHub  
+> Version V2 — Architecture conteneurisée
 
 ---
 
@@ -8,25 +8,24 @@
 
 | Niveau | Heures totales estimées |
 |--------|------------------------|
-| Débutant en DevOps/Linux | **50 à 65 heures** |
-| Intermédiaire (Linux + Git OK) | **30 à 40 heures** |
-| Avancé (Terraform/Ansible déjà pratiqués) | **15 à 25 heures** |
+| Débutant en DevOps/Linux | **30 à 40 heures** |
+| Intermédiaire (Linux + Git OK) | **15 à 25 heures** |
+| Avancé (Terraform déjà pratiqué) | **8 à 15 heures** |
 
-> **Recommandation réaliste pour un projet académique :** compter **35 à 45 heures** de travail effectif, réparties sur 3 à 4 semaines.
+> **Recommandation réaliste :** compter **15 à 25 heures** de travail effectif, réparties sur 2 à 3 semaines. Le passage à Docker supprime la couche VM (libvirt, cloud-init, SSH, Ansible lourd).
 
 ---
 
 ## 🗂️ Vue d'ensemble des phases
 
 ```
-Phase 0 — Préparation & GitHub         (~3h)
-Phase 1 — Environnement & Prérequis    (~4h)
-Phase 2 — Infrastructure Terraform     (~8h)
-Phase 3 — Configuration Ansible        (~8h)
-Phase 4 — Déploiement Wazuh            (~6h)
-Phase 5 — Cas d'usage & Tests          (~5h)
-Phase 6 — Documentation & Finalisation (~5h)
-                               TOTAL : ~39h
+Phase 0 — Préparation & GitHub         (~2h)
+Phase 1 — Environnement & Prérequis    (~1h)
+Phase 2 — Infrastructure Terraform     (~4h)
+Phase 3 — Déploiement Wazuh (Docker)   (~2h)
+Phase 4 — Cas d'usage & Tests          (~4h)
+Phase 5 — Documentation & Finalisation (~4h)
+                               TOTAL : ~17h
 ```
 
 ---
@@ -63,204 +62,154 @@ Phase 6 — Documentation & Finalisation (~5h)
 ---
 
 ## Phase 1 — Environnement & Prérequis
-**Durée estimée : ~4 heures**
+**Durée estimée : ~1 heure**
 
 ### Objectifs
-- Installer et valider tous les outils nécessaires sur le poste hôte
-- Configurer libvirt/QEMU en remplacement de VirtualBox
+- Installer et valider les outils nécessaires (Docker + Terraform + Ansible)
 
 ### Tâches
 
-- [ ] Installer **libvirt**, **QEMU** et **virt-manager** sur le poste hôte :
+- [ ] Vérifier que **Docker Engine** est installé et démarré :
   ```bash
-  sudo apt install -y qemu-kvm libvirt-daemon-system virt-manager bridge-utils
-  sudo usermod -aG libvirt $USER
+  docker --version
+  docker info
   ```
-- [ ] Vérifier que la virtualisation matérielle est activée (`egrep -c '(vmx|svm)' /proc/cpuinfo`)
 - [ ] Installer **Terraform >= 1.5.0** et vérifier : `terraform version`
 - [ ] Installer **Ansible >= 2.12** et vérifier : `ansible --version`
-- [ ] Installer le provider Terraform pour libvirt (`dmacvicar/libvirt`) — différent du provider VirtualBox du document
-- [ ] Générer une paire de clés SSH ED25519 : `ssh-keygen -t ed25519 -C "soc-project"`
-- [ ] Télécharger l'image cloud Ubuntu Server 22.04 LTS (`.qcow2`) pour libvirt :
-  ```bash
-  wget https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img
-  ```
-- [ ] Créer le réseau virtuel libvirt isolé (équivalent du réseau host-only VirtualBox) :
-  ```bash
-  virsh net-define soc-network.xml && virsh net-start soc-net
-  ```
-- [ ] Vérifier la connectivité réseau entre VMs avec `virsh list` et `virsh net-list`
-
-### ⚠️ Point d'adaptation clé
-> Le document source utilise le provider `terra-farm/virtualbox`. Avec libvirt/QEMU, on utilisera le provider **`dmacvicar/libvirt`** (officiel et maintenu). La syntaxe des ressources change : `libvirt_domain` remplace `virtualbox_vm`, et les images sont gérées via `libvirt_volume`.
 
 ### Livrable
-> Environnement hôte 100% opérationnel, image Ubuntu cloud disponible, réseau libvirt configuré.
+> Docker, Terraform et Ansible prêts sur le poste hôte.
 
 ---
 
-## Phase 2 — Infrastructure Terraform (libvirt)
-**Durée estimée : ~8 heures**
+## Phase 2 — Infrastructure Terraform (Docker)
+**Durée estimée : ~4 heures**
 
 ### Objectifs
-- Écrire le code Terraform pour provisionner VM-SOC et VM-CLIENT via libvirt/QEMU
-- Maîtriser le cycle `init → plan → apply → destroy`
+- Écrire le code Terraform avec le provider `kreuzwerker/docker`
+- Provisionner les containers Wazuh (indexer, manager, dashboard, agent)
+- Maîtriser les ressources Docker dans Terraform
 
 ### Tâches
 
 #### 2.1 — Fichier `versions.tf`
 - [ ] Déclarer Terraform >= 1.5.0
-- [ ] Déclarer le provider `dmacvicar/libvirt ~> 0.7.0`
-- [ ] Configurer le provider libvirt avec l'URI locale : `qemu:///system`
+- [ ] Déclarer le provider `kreuzwerker/docker ~> 3.0`
+- [ ] Pas de configuration provider nécessaire (Docker socket local)
 
 #### 2.2 — Fichier `variables.tf`
-- [ ] Déclarer les variables : noms des VMs, IPs, RAM, CPU, chemin image, clé SSH publique
-- [ ] Créer `terraform.tfvars` avec les valeurs réelles (⚠️ à exclure du Git via `.gitignore`)
+- [ ] Déclarer les variables : version Wazuh, ports, mots de passe, nom agent
+- [ ] Créer `terraform.tfvars` (⚠️ à exclure du Git via `.gitignore`)
 
 #### 2.3 — Fichier `main.tf`
-- [ ] Créer le volume de base (image Ubuntu cloud) : ressource `libvirt_volume`
-- [ ] Créer les volumes disques pour VM-SOC (30 Go) et VM-CLIENT (15 Go) par clonage
-- [ ] Créer les disques cloud-init (`libvirt_cloudinit_disk`) pour injecter la clé SSH et le user `ansible`
-- [ ] Déclarer la ressource `libvirt_domain` pour VM-SOC (2 vCPU, 6144 Mo RAM)
-- [ ] Déclarer la ressource `libvirt_domain` pour VM-CLIENT (1 vCPU, 1024 Mo RAM)
-- [ ] Attacher les VMs au réseau libvirt isolé avec les IPs statiques (`192.168.56.10` et `192.168.56.11`)
+- [ ] Créer le réseau Docker `soc-network` : ressource `docker_network`
+- [ ] Déclarer les images Docker Wazuh : `docker_image`
+- [ ] Déclarer les volumes persistants : `docker_volume` (indexer, manager, dashboard)
+- [ ] Déclarer le container `wazuh-indexer` (OpenSearch) : port 9200, healthcheck
+- [ ] Déclarer le container `wazuh-manager` : ports 1514-1515, API 55000
+- [ ] Déclarer le container `wazuh-dashboard` : port 443
+- [ ] Déclarer le container `wazuh-agent` : mode privilégié, connexion au manager
+- [ ] Configurer les variables d'environnement de chaque container
 
 #### 2.4 — Fichier `outputs.tf`
-- [ ] Exposer `soc_ip` et `client_ip` pour alimentation automatique de l'inventaire Ansible
+- [ ] Exposer les URLs et ports des services
 
-#### 2.5 — Template `cloud-init.tpl`
-- [ ] Définir le `user-data` : création utilisateur `ansible`, injection clé SSH, activation sudo sans mot de passe
-- [ ] Définir le `network-config` : IPs statiques pour chaque VM
-
-#### 2.6 — Script `generate_inventory.sh`
-- [ ] Lire les outputs Terraform (`terraform output -json`)
-- [ ] Générer automatiquement `ansible/inventory.ini` avec les IPs réelles
-
-#### 2.7 — Validation
-- [ ] `terraform init` → téléchargement du provider libvirt
-- [ ] `terraform plan` → vérifier le plan (2 VMs, 2 volumes, 2 cloud-init)
-- [ ] `terraform apply` → provisionner les VMs
-- [ ] Tester la connexion SSH : `ssh ansible@192.168.56.10`
+#### 2.5 — Validation
+- [ ] `terraform init` → téléchargement du provider Docker
+- [ ] `terraform plan` → vérifier le plan (1 network, 4 images, 3 volumes, 4 containers)
+- [ ] `terraform apply` → provisionner les containers
+- [ ] Vérifier avec `docker ps` que tous les containers tournent
 - [ ] Commit sur la branche `dev` + push GitHub
 
 ### Livrable
-> 2 VMs Ubuntu accessibles en SSH, provisionnées par Terraform, code versionné sur GitHub.
+> 4 containers Wazuh opérationnels, réseau Docker isolé, volumes persistants.
 
 ---
 
-## Phase 3 — Configuration Ansible
-**Durée estimée : ~8 heures**
+## Phase 3 — Configuration Ansible (Docker)
+**Durée estimée : ~2 heures**
 
 ### Objectifs
-- Structurer les playbooks et rôles Ansible
-- Maîtriser l'inventaire, les group_vars et le cycle de déploiement
+- Utiliser Ansible pour configurer et vérifier les containers Wazuh
+- Utiliser le module `community.docker.docker_container_exec`
 
 ### Tâches
 
-#### 3.1 — Configuration de base
-- [ ] Rédiger `ansible/ansible.cfg` : définir le chemin de l'inventaire, désactiver la vérification host_key
-- [ ] Générer `ansible/inventory.ini` via le script (ou manuellement pour les tests) :
-  ```ini
-  [soc]
-  vm-soc ansible_host=192.168.56.10 ansible_user=ansible
+#### 3.1 — Configuration Ansible
+- [ ] Rédiger `ansible/ansible.cfg` : inventaire local
+- [ ] Rédiger `inventory.ini` : connexion locale
+- [ ] Installer la collection : `ansible-galaxy collection install community.docker`
 
-  [clients]
-  vm-client ansible_host=192.168.56.11 ansible_user=ansible
+#### 3.2 — Rôles Ansible
+- [ ] Rôle `verify` : vérifier que Docker est disponible et les containers existent
+- [ ] Rôle `configure_indexer` : vérifier la santé du cluster OpenSearch
+- [ ] Rôle `configure_manager` : statut des services Wazuh, connexion Filebeat→Indexer
+- [ ] Rôle `configure_dashboard` : vérifier que le Dashboard répond
+- [ ] Rôle `configure_agent` : vérifier l'enregistrement de l'agent
 
-  [all:vars]
-  ansible_ssh_private_key_file=~/.ssh/id_ed25519
-  ansible_python_interpreter=/usr/bin/python3
-  ```
-- [ ] Tester la connectivité : `ansible all -m ping`
+#### 3.3 — Playbooks
+- [ ] Rédiger `playbooks/site.yml` : orchestrateur (tous les rôles)
+- [ ] Rédiger `playbooks/soc.yml` : stack SOC uniquement
+- [ ] Rédiger `playbooks/client.yml` : agent uniquement
 
-#### 3.2 — Variables de groupe
-- [ ] Rédiger `group_vars/soc.yml` : version Wazuh, mot de passe admin, certificats TLS
-- [ ] Rédiger `group_vars/clients.yml` : adresse IP du Manager, port 1514
-
-#### 3.3 — Rôles Wazuh (Ansible Galaxy)
-- [ ] Rédiger `requirements.yml` avec les 4 rôles officiels Wazuh
-- [ ] Installer les rôles : `ansible-galaxy install -r requirements.yml`
-
-#### 3.4 — Playbooks
-- [ ] Rédiger `playbooks/site.yml` (orchestrateur principal)
-- [ ] Rédiger `playbooks/soc.yml` (déploiement Wazuh Manager + Indexer + Dashboard)
-- [ ] Rédiger `playbooks/client.yml` (déploiement Wazuh Agent)
-- [ ] Configurer le template `ossec.conf` pour pointer l'agent vers `192.168.56.10:1514`
-
-#### 3.5 — Validation syntaxique
-- [ ] `ansible-playbook --syntax-check playbooks/site.yml`
-- [ ] `ansible-playbook --check playbooks/site.yml` (dry-run)
+#### 3.4 — Validation
+- [ ] `ansible-playbook playbooks/site.yml --syntax-check`
+- [ ] `ansible-playbook playbooks/site.yml` après `terraform apply`
 - [ ] Commit sur `dev` + push GitHub
 
 ### Livrable
-> Playbooks Ansible validés syntaxiquement, rôles installés, inventaire opérationnel.
+> Ansible configure et vérifie les containers Wazuh. SOC entièrement déployé, Dashboard accessible, agent connecté.
 
 ---
 
-## Phase 4 — Déploiement Wazuh
-**Durée estimée : ~6 heures**
+## Phase 4 — Tests d'intégration
 
 ### Objectifs
-- Déployer la suite Wazuh complète (Manager + Indexer + Dashboard + Agent)
-- Vérifier que tous les services sont actifs et communicants
+- Valider que la stack complète fonctionne
 
 ### Tâches
 
-- [ ] Lancer le déploiement complet : `ansible-playbook playbooks/site.yml`
-  > ⏳ Durée attendue : 15 à 30 minutes selon la machine hôte
-- [ ] Vérifier les services sur VM-SOC :
-  ```bash
-  systemctl status wazuh-manager wazuh-indexer wazuh-dashboard
-  ```
-- [ ] Vérifier l'agent sur VM-CLIENT :
-  ```bash
-  systemctl status wazuh-agent
-  ```
-- [ ] Ouvrir le Dashboard : `https://192.168.56.10` et vérifier la connexion admin
-- [ ] Vérifier que `vm-client` apparaît comme **Active** dans le Dashboard
-- [ ] Vérifier les logs de communication Manager ↔ Indexer (port 9200)
-- [ ] Corriger les erreurs éventuelles (certificats TLS, pare-feu UFW, mémoire insuffisante)
-- [ ] Commit du rapport de déploiement dans `docs/` + push GitHub
-
-### ⚠️ Points de vigilance
-> - L'Indexer (OpenSearch) nécessite **au moins 4 Go de RAM** et peut mettre plusieurs minutes à démarrer.
-> - Sous libvirt, vérifier que les règles `nftables`/`iptables` n'bloquent pas les ports 1514, 9200 et 443.
-> - Le mot de passe admin est généré à l'installation — le noter immédiatement.
+- [ ] Lancer le déploiement complet : `make deploy` (Terraform + Ansible)
+  > ⏳ Durée attendue : 1 à 3 minutes (pulls d'images Docker)
+- [ ] Vérifier les containers : `make status`
+- [ ] Vérifier la santé : `make health`
+- [ ] Ouvrir le Dashboard : `https://localhost` (admin / Admin123!)
+- [ ] Vérifier que l'agent `client-01` apparaît comme **Active** dans le Dashboard
+- [ ] Corriger les erreurs éventuelles
 
 ### Livrable
-> SOC entièrement déployé, Dashboard accessible, agent connecté et actif.
+> SOC entièrement fonctionnel en conteneurs Docker.
 
 ---
 
-## Phase 5 — Cas d'Usage & Tests de Détection
-**Durée estimée : ~5 heures**
+## Phase 4 bis — Cas d'Usage & Tests de Détection
+**Durée estimée : ~4 heures**
 
 ### Objectifs
-- Valider les 3 cas d'usage de détection définis dans le projet
-- Observer les alertes en temps réel dans le Dashboard
+- Valider les 3 cas d'usage de détection (l'agent surveille le host Docker)
 
 ### Tâches
 
 #### Cas 1 — Brute Force SSH (règle Wazuh 5712)
-- [ ] Depuis le poste hôte, lancer 5+ tentatives SSH échouées vers VM-CLIENT :
+- [ ] Lancer des tentatives SSH échouées depuis le host :
   ```bash
-  for i in {1..6}; do ssh root@192.168.56.11; done
+  for i in {1..6}; do ssh root@localhost; done
   ```
 - [ ] Observer l'alerte dans le Dashboard (niveau medium, source IP, timestamp)
 - [ ] Capturer une screenshot dans `docs/screenshots/`
 
 #### Cas 2 — Création d'un utilisateur non autorisé (règle 5902)
-- [ ] Sur VM-CLIENT : `sudo useradd hacker`
+- [ ] Sur le host : `sudo useradd hacker`
 - [ ] Observer l'alerte dans le Dashboard
 - [ ] Capturer une screenshot
 
 #### Cas 3 — Modification de `/etc/passwd` (File Integrity Monitoring)
-- [ ] Sur VM-CLIENT : modifier `/etc/passwd` (ajouter une ligne commentée par exemple)
-- [ ] Observer l'alerte FIM dans le Dashboard (rule 550, changes: size, md5, sha1)
+- [ ] Modifier `/etc/passwd` (ajouter une ligne commentée)
+- [ ] Observer l'alerte FIM dans le Dashboard (rule 550)
 - [ ] Capturer une screenshot
 
 #### Automatisation des tests
-- [ ] Créer un script `docs/test_scenarios.sh` qui reproduit les 3 cas automatiquement
+- [ ] Créer un script `docs/test_scenarios.sh` qui reproduit les 3 cas
 - [ ] Commit des screenshots et du script dans `docs/` + push GitHub
 
 ### Livrable
@@ -281,93 +230,96 @@ Phase 6 — Documentation & Finalisation (~5h)
 - [ ] Compléter le `README.md` avec : architecture, prérequis, étapes de déploiement, cas d'usage
 - [ ] Ajouter un schéma d'architecture dans `docs/architecture.md`
 - [ ] Rédiger `docs/troubleshooting.md` : erreurs fréquentes rencontrées et solutions
-- [ ] Documenter les différences **VirtualBox → libvirt/QEMU** dans `docs/adaptation_libvirt.md`
 
 #### Makefile final
-- [ ] Ajouter les cibles : `deploy`, `destroy`, `test`, `ping`, `lint`
+- [ ] Ajouter les cibles : `deploy`, `destroy`, `status`, `health`, `configure`
   ```makefile
   deploy:
       cd terraform && terraform init && terraform apply -auto-approve
-      bash generate_inventory.sh
-      cd ansible && ansible-galaxy install -r requirements.yml
+      cd ansible && ansible-galaxy collection install community.docker
+      cd ansible && ansible-playbook playbooks/site.yml
+
+  configure:
       cd ansible && ansible-playbook playbooks/site.yml
 
   destroy:
       cd terraform && terraform destroy -auto-approve
 
-  ping:
-      cd ansible && ansible all -m ping
+  status:
+      docker ps --filter network=soc-network
 
-  test:
-      bash docs/test_scenarios.sh
+  health:
+      curl -sfk https://localhost:9200/_cluster/health
   ```
 
 #### GitHub — Finalisation
 - [ ] Merger la branche `dev` dans `main` via Pull Request
-- [ ] Créer un **tag de release** : `git tag v1.0.0 && git push --tags`
-- [ ] Ajouter les **topics GitHub** : `terraform`, `ansible`, `wazuh`, `soc`, `libvirt`, `devops`, `cybersecurity`
+- [ ] Créer un **tag de release** : `git tag v2.0.0 && git push --tags`
+- [ ] Ajouter les **topics GitHub** : `terraform`, `ansible`, `wazuh`, `soc`, `docker`, `devops`, `cybersecurity`
 - [ ] Vérifier que le `.gitignore` exclut bien tous les fichiers sensibles
 - [ ] Relecture finale du README depuis un compte GitHub tiers (ou en navigation privée)
 
 ### Livrable
-> Dépôt GitHub propre, documenté, taggé v1.0.0, prêt à être présenté ou partagé.
+> Dépôt GitHub propre, documenté, taggé v2.0.0, prêt à être présenté ou partagé.
 
 ---
 
-## 📅 Planning Semaine par Semaine (sur 4 semaines)
+## 📅 Planning Semaine par Semaine (sur 2-3 semaines)
 
 | Semaine | Phases | Heures |
 |---------|--------|--------|
-| **Semaine 1** | Phase 0 (GitHub) + Phase 1 (Environnement) + Phase 2 (Terraform) | ~10h |
-| **Semaine 2** | Phase 3 (Ansible) + début Phase 4 (Déploiement) | ~10h |
-| **Semaine 3** | Fin Phase 4 + Phase 5 (Tests & Détection) | ~8h |
-| **Semaine 4** | Phase 6 (Documentation & Finalisation) | ~6h |
-| **Total** | | **~34 à 39h** |
+| **Semaine 1** | Phase 0 (GitHub) + Phase 1 (Prérequis) + Phase 2 (Terraform Docker) | ~7h |
+| **Semaine 2** | Phase 3 (Ansible Docker) + Phase 4 (Tests) | ~6h |
+| **Semaine 3** | Phase 5 (Documentation & Finalisation) | ~4h |
+| **Total** | | **~17h** |
 
 ---
 
 ## 🔁 Commandes de référence rapide
 
 ```bash
-# === TERRAFORM ===
-terraform init          # Initialiser + télécharger provider libvirt
+# === TERRAFORM (Docker) ===
+terraform init          # Initialiser + télécharger provider docker
 terraform plan          # Voir ce qui sera créé
-terraform apply         # Provisionner les VMs
-terraform destroy       # Supprimer toutes les ressources
-terraform output -json  # Lire les IPs pour Ansible
+terraform apply         # Créer les containers Wazuh
+terraform destroy       # Supprimer tous les containers
+terraform output        # Voir les URLs des services
 
-# === ANSIBLE ===
-ansible all -m ping                              # Tester la connectivité SSH
-ansible-galaxy install -r requirements.yml       # Installer les rôles Wazuh
-ansible-playbook playbooks/site.yml              # Déployer tout le SOC
-ansible-playbook playbooks/site.yml --check      # Dry-run
+# === ANSIBLE (Docker) ===
+ansible-galaxy collection install community.docker
+ansible-playbook playbooks/site.yml   # Configurer les containers
+ansible-playbook playbooks/soc.yml    # Stack SOC uniquement
+ansible-playbook playbooks/client.yml # Agent uniquement
 
-# === LIBVIRT ===
-virsh list --all         # Lister les VMs
-virsh net-list           # Lister les réseaux
-virsh console vm-soc     # Accès console VM (si SSH KO)
+# === DOCKER ===
+docker ps --filter network=soc-network              # Lister les containers SOC
+docker logs wazuh-manager --tail 50                  # Logs du manager
+docker exec wazuh-manager /var/ossec/bin/wazuh-control status  # Statut interne
 
 # === GIT ===
 git checkout -b dev      # Travailler sur la branche dev
 git add . && git commit -m "feat: ..."
 git push origin dev
-git tag v1.0.0 && git push --tags
+git tag v2.0.0 && git push --tags
 ```
 
 ---
 
-## ⚡ Adaptation VirtualBox → libvirt/QEMU — Résumé des changements
+## ⚡ Évolution des architectures
 
-| Élément | VirtualBox (document original) | libvirt/QEMU (ce projet) |
-|---------|-------------------------------|--------------------------|
-| Provider Terraform | `terra-farm/virtualbox ~> 0.2.0` | `dmacvicar/libvirt ~> 0.7.0` |
-| Ressource VM | `virtualbox_vm` | `libvirt_domain` |
-| Image disque | ISO Ubuntu Server | Image cloud `.qcow2` (Ubuntu Cloud) |
-| Réseau isolé | Host-only `vboxnet0` | Réseau libvirt NAT ou isolé |
-| Cloud-init | `user_data = templatefile(...)` | `libvirt_cloudinit_disk` |
-| Gestion volumes | Intégrée à la VM | `libvirt_volume` séparé |
-| URI provider | N/A | `qemu:///system` |
+| Élément | V1 — VMs (libvirt) | V2 — Containers (Docker) |
+|---------|-------------------|--------------------------|
+| Provider Terraform | `dmacvicar/libvirt` | `kreuzwerker/docker` |
+| Ressource principale | `libvirt_domain` | `docker_container` |
+| OS invité | Ubuntu Server 22.04 cloud `.qcow2` | Images officielles Wazuh |
+| Réseau | Réseau libvirt NAT | Réseau Docker bridge |
+| Configuration VM | cloud-init (user-data + SSH keys) | Variables d'environnement |
+| Agent de config | Ansible (via SSH) | Ansible (via `docker_container_exec`) |
+| Stockage | Volumes libvirt (qcow2) | Volumes Docker |
+| RAM requise | 8+ Go (2 VMs) | ~4 Go (containers) |
+| Temps déploiement | 15-30 min | 1-3 min |
+| Outils supplémentaires | libvirt, QEMU, xorriso, cloud-init | Docker Engine uniquement |
 
 ---
 
-*Planning généré pour le projet Mini SOC — V1 | libvirt/QEMU | GitHub*
+*Planning généré pour le projet Mini SOC — V2 | Docker | GitHub*

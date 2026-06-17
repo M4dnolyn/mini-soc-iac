@@ -1,0 +1,7 @@
+---
+- name: "Configurer l'agent Wazuh"
+  hosts: local
+  gather_facts: false
+  roles:
+    - role: verify
+    - role: configure_agent
