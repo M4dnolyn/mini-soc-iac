@@ -1,0 +1,27 @@
+# Mini SOC - Terraform variables
+# Copy to terraform.tfvars and fill in your values
+
+# SSH public key path
+ssh_public_key = "~/.ssh/id_ed25519_soc.pub"
+
+# VM-SOC configuration
+soc_vm_name    = "vm-soc"
+soc_ram_mb     = 6144
+soc_vcpu       = 2
+soc_ip         = "192.168.100.10"
+soc_disk_gb    = 30
+
+# VM-CLIENT configuration
+client_vm_name    = "vm-client"
+client_ram_mb     = 2048
+client_vcpu       = 1
+client_ip         = "192.168.100.11"
+client_disk_gb    = 15
+
+# Network
+network_cidr    = "192.168.100.0/24"
+network_gateway = "192.168.100.1"
+network_bridge  = "virbr0"
+
+# Cloud image
+cloud_image_path = "/var/lib/libvirt/images/ubuntu-22.04-server-cloudimg-amd64.img"
