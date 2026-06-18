@@ -10,6 +10,15 @@
   ansible.builtin.debug:
     var: manager_status.stdout_lines
 
+- name: "Corriger le SSL de Filebeat (certificat signé pour demo.indexer, pas wazuh-indexer)"
+  ansible.builtin.shell:
+    cmd: |
+      docker exec {{ manager_container }} sed -i 's|#ssl.verification_mode:|ssl.verification_mode: none|' /etc/filebeat/filebeat.yml
+      docker exec {{ manager_container }} s6-svc -r /var/run/s6/services/filebeat
+  register: filebeat_fix
+  changed_when: filebeat_fix.rc == 0
+  ignore_errors: true
+
 - name: "Vérifier les indices Wazuh dans l'indexer"
   ansible.builtin.shell:
     cmd: "docker exec {{ manager_container }} curl -sfk -u admin:admin https://localhost:9200/_cat/indices 2>/dev/null || echo 'pas encore disponible'"
