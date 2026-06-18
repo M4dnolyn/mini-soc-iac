@@ -9,7 +9,7 @@ resource "docker_network" "soc" {
   name = var.network_name
 }
 
-# ── Images ──────────────────────────────────────────────────────────────
+# Images
 
 resource "docker_image" "indexer" {
   name = "wazuh/wazuh-indexer:${local.wazuh_tag}"
@@ -27,7 +27,7 @@ resource "docker_image" "agent" {
   name = "wazuh/wazuh-agent:${local.wazuh_tag}"
 }
 
-# ── Volumes ─────────────────────────────────────────────────────────────
+# Volumes
 
 resource "docker_volume" "indexer_data" {
   name = "wazuh-indexer-data"
@@ -41,7 +41,7 @@ resource "docker_volume" "dashboard_data" {
   name = "wazuh-dashboard-data"
 }
 
-# ── Wazuh Indexer ───────────────────────────────────────────────────────
+# Wazuh Indexer
 
 resource "docker_container" "indexer" {
   name  = "wazuh-indexer"
@@ -79,7 +79,7 @@ resource "docker_container" "indexer" {
   restart = "unless-stopped"
 }
 
-# ── Wazuh Manager ───────────────────────────────────────────────────────
+# Wazuh Manager
 
 resource "docker_container" "manager" {
   name  = "wazuh-manager"
@@ -124,7 +124,7 @@ resource "docker_container" "manager" {
   depends_on = [docker_container.indexer]
 }
 
-# ── Wazuh Dashboard ─────────────────────────────────────────────────────
+# Wazuh Dashboard
 
 resource "docker_container" "dashboard" {
   name  = "wazuh-dashboard"
@@ -168,7 +168,7 @@ resource "docker_container" "dashboard" {
   depends_on = [docker_container.indexer]
 }
 
-# ── Wazuh Agent (Client) ────────────────────────────────────────────────
+# Wazuh Agent (Client)
 
 resource "docker_container" "agent" {
   name  = local.agent_name
